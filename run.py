@@ -33,7 +33,7 @@ def main():
     for vc_host in settings.VC_HOSTS:
         try:
             start_time = datetime.now()
-            nb = NetBoxHandler(vc_host["HOST"], vc_host["PORT"])
+            nb = NetBoxHandler(vc_host["HOST"], vc_host["PORT"], vc_host['USER'], vc_host['PASS'])
             if args.cleanup:
                 nb.remove_all()
                 log.info(
@@ -207,10 +207,12 @@ def verify_ip(ip_addr):
 
 class vCenterHandler:
     """Handles vCenter connection state and object data collection"""
-    def __init__(self, vc_host, vc_port):
+    def __init__(self, vc_host, vc_port, vc_user, vc_pass):
         self.vc_session = None # Used to hold vCenter session state
         self.vc_host = vc_host
         self.vc_port = vc_port
+        self.vc_user = vc_user
+        self.vc_pass = vc_pass
         self.tags = ["Synced", "vCenter", format_tag(self.vc_host)]
 
     def authenticate(self):
@@ -223,8 +225,8 @@ class vCenterHandler:
             vc_instance = SmartConnectNoSSL(
                 host=self.vc_host,
                 port=self.vc_port,
-                user=settings.VC_USER,
-                pwd=settings.VC_PASS,
+                user=self.vc_user,
+                pwd=self.vc_pass,
                 )
             atexit.register(Disconnect, vc_instance)
             self.vc_session = vc_instance.RetrieveContent()
@@ -581,7 +583,7 @@ class vCenterHandler:
 
 class NetBoxHandler:
     """Handles NetBox connection state and interaction with API"""
-    def __init__(self, vc_host, vc_port):
+    def __init__(self, vc_host, vc_port, vc_user, vc_pass):
         self.header = {"Authorization": "Token {}".format(settings.NB_API_KEY)}
         self.nb_api_url = "http{}://{}{}/api/".format(
             ("s" if not settings.NB_DISABLE_TLS else ""), settings.NB_FQDN,
@@ -692,7 +694,7 @@ class NetBoxHandler:
         # Create an instance of the vCenter host for use in tagging functions
         # Strip to hostname if a fqdn was provided
         self.vc_tag = format_tag(vc_host)
-        self.vc = vCenterHandler(vc_host=vc_host, vc_port=vc_port)
+        self.vc = vCenterHandler(vc_host=vc_host, vc_port=vc_port, vc_user=vc_user, vc_pass=vc_pass)
 
     def request(self, req_type, nb_obj_type, data=None, query=None, nb_id=None):
         """
